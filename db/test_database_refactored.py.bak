@@ -1,0 +1,178 @@
+import os
+import sys
+import unittest
+import sqlite3
+import tempfile
+import shutil
+from pathlib import Path
+
+# Add the parent directory to sys.path to import the database module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import both the original and refactored database modules
+import db.database as original_db
+import db.database_refactored as refactored_db
+
+
+class TestDatabaseRefactoring(unittest.TestCase):
+    """Test case to verify the refactored database module works correctly."""
+    
+    def setUp(self):
+        """Set up a temporary database for testing."""
+        # Create a temporary directory
+        self.test_dir = tempfile.mkdtemp()
+        
+        # Back up the original database file path constants
+        self.original_db_dir = original_db.DB_DIR
+        self.original_db_file = original_db.DB_FILE
+        self.refactored_db_dir = refactored_db.DB_DIR
+        self.refactored_db_file = refactored_db.DB_FILE
+        
+        # Set the database file paths for testing
+        original_db.DB_DIR = Path(self.test_dir) / "original"
+        original_db.DB_FILE = original_db.DB_DIR / "test_db.db"
+        refactored_db.DB_DIR = Path(self.test_dir) / "refactored"
+        refactored_db.DB_FILE = refactored_db.DB_DIR / "test_db.db"
+        
+        # Initialize both databases
+        original_db.initialize_database()
+        refactored_db.initialize_database()
+    
+    def tearDown(self):
+        """Clean up after tests."""
+        # Restore original database file path constants
+        original_db.DB_DIR = self.original_db_dir
+        original_db.DB_FILE = self.original_db_file
+        refactored_db.DB_DIR = self.refactored_db_dir
+        refactored_db.DB_FILE = self.refactored_db_file
+        
+        # Remove the temporary directory
+        shutil.rmtree(self.test_dir)
+    
+    def test_user_creation(self):
+        """Test that user creation works in both original and refactored modules."""
+        # Create a test user in both databases
+        original_user_id = original_db.get_or_create_user("testuser", "test@example.com")
+        refactored_user_id = refactored_db.get_or_create_user("testuser", "test@example.com")
+        
+        # Verify that both modules returned a valid user ID
+        self.assertIsNotNone(original_user_id)
+        self.assertIsNotNone(refactored_user_id)
+    
+    def test_admin_user(self):
+        """Test that admin checking works in both modules."""
+        # Check for admin user in both databases
+        original_is_admin = original_db.is_admin("admin")
+        refactored_is_admin = refactored_db.is_admin("admin")
+        
+        # Verify that admin user exists and has admin privileges
+        self.assertTrue(original_is_admin)
+        self.assertTrue(refactored_is_admin)
+    
+    def test_progress_tracking(self):
+        """Test progress tracking functionality."""
+        # Create a test user in both databases
+        original_user_id = original_db.get_or_create_user("progress_test", "progress@example.com")
+        refactored_user_id = refactored_db.get_or_create_user("progress_test", "progress@example.com")
+        
+        # Update progress in both databases
+        original_result = original_db.update_topic_progress(
+            original_user_id, "chapter1", "topic1", True
+        )
+        refactored_result = refactored_db.update_topic_progress(
+            refactored_user_id, "chapter1", "topic1", True
+        )
+        
+        # Verify that progress was updated successfully in both databases
+        self.assertTrue(original_result)
+        self.assertTrue(refactored_result)
+        
+        # Get progress from both databases
+        original_progress = original_db.get_user_progress(original_user_id)
+        refactored_progress = refactored_db.get_user_progress(refactored_user_id)
+        
+        # Verify that progress data is consistent
+        self.assertIn("chapter1", original_progress)
+        self.assertIn("chapter1", refactored_progress)
+        self.assertIn("topic1", original_progress["chapter1"])
+        self.assertIn("topic1", refactored_progress["chapter1"])
+        self.assertTrue(original_progress["chapter1"]["topic1"]["is_completed"])
+        self.assertTrue(refactored_progress["chapter1"]["topic1"]["is_completed"])
+    
+    def test_notes_management(self):
+        """Test notes management functionality."""
+        # Create a test user in both databases
+        original_user_id = original_db.get_or_create_user("notes_test", "notes@example.com")
+        refactored_user_id = refactored_db.get_or_create_user("notes_test", "notes@example.com")
+        
+        # Add notes in both databases
+        original_result = original_db.add_user_note(
+            original_user_id, "chapter2", "Test note content"
+        )
+        refactored_result = refactored_db.add_user_note(
+            refactored_user_id, "chapter2", "Test note content"
+        )
+        
+        # Verify that notes were added successfully
+        self.assertTrue(original_result)
+        self.assertTrue(refactored_result)
+        
+        # Get notes from both databases
+        original_notes = original_db.get_user_notes(original_user_id)
+        refactored_notes = refactored_db.get_user_notes(refactored_user_id)
+        
+        # Verify that notes were retrieved successfully
+        self.assertEqual(len(original_notes), 1)
+        self.assertEqual(len(refactored_notes), 1)
+        self.assertEqual(original_notes[0][1], "chapter2")  # chapter_id
+        self.assertEqual(refactored_notes[0][1], "chapter2")  # chapter_id
+        self.assertEqual(original_notes[0][2], "Test note content")  # content
+        self.assertEqual(refactored_notes[0][2], "Test note content")  # content
+    
+    def test_quiz_results(self):
+        """Test quiz results functionality."""
+        # Create a test user in both databases
+        original_user_id = original_db.get_or_create_user("quiz_test", "quiz@example.com")
+        refactored_user_id = refactored_db.get_or_create_user("quiz_test", "quiz@example.com")
+        
+        # Record quiz results in both databases
+        original_result = original_db.record_quiz_result(
+            original_user_id, 10, 8, "chapter3"
+        )
+        refactored_result = refactored_db.record_quiz_result(
+            refactored_user_id, 10, 8, "chapter3"
+        )
+        
+        # Verify that quiz results were recorded successfully
+        self.assertTrue(original_result)
+        self.assertTrue(refactored_result)
+    
+    def test_admin_functions(self):
+        """Test admin functions like user management."""
+        # Create a test admin user
+        original_admin_id = original_db.get_or_create_user("test_admin", "admin@test.com", True)
+        refactored_admin_id = refactored_db.get_or_create_user("test_admin", "admin@test.com", True)
+        
+        # Create a regular user to be managed
+        original_user_id = original_db.get_or_create_user("managed_user", "managed@example.com")
+        refactored_user_id = refactored_db.get_or_create_user("managed_user", "managed@example.com")
+        
+        # Update user metadata in both databases
+        original_result = original_db.update_user_metadata(original_user_id, "updated@example.com")
+        refactored_result = refactored_db.update_user_metadata(refactored_user_id, "updated@example.com")
+        
+        # Verify that user metadata was updated successfully
+        self.assertTrue(original_result[0])
+        self.assertTrue(refactored_result[0])
+        
+        # Get user details from both databases
+        original_details = original_db.get_user_details(original_user_id)
+        refactored_details = refactored_db.get_user_details(refactored_user_id)
+        
+        # Verify that user details were retrieved successfully
+        self.assertEqual(original_details["email"], "updated@example.com")
+        self.assertEqual(refactored_details["email"], "updated@example.com")
+
+
+if __name__ == "__main__":
+    unittest.main()
